@@ -140,7 +140,7 @@ const App = () => {
       {!joined ? (
         <div className="join-container">
           <div className="join-form">
-            <div className="join-header"><CodeIcon /><h1>CodeCollab</h1></div>
+            <div className="join-header"><CodeIcon /><h1>CodoCollab</h1></div>
             <input type="text" placeholder="Enter your name" value={userName} onChange={(e) => setUserName(e.target.value)} />
             <input type="text" placeholder="Enter Room ID" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
             <div className="join-buttons">
@@ -153,7 +153,7 @@ const App = () => {
         <div className="app-container">
           <nav className="navbar">
             <div className="nav-left">
-              <CodeIcon /> <h1>CodeCollab</h1>
+              <CodeIcon /> <h1>CodoCollab</h1>
             </div>
             
             <div className="editor-controls">
