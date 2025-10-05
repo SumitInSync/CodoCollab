@@ -20,6 +20,7 @@
     "body-parser": "^2.2.0",
     "dotenv": "^17.1.0",
     "express": "^5.1.0",
+    "monaco-themes": "^0.4.7",
     "multer": "^2.0.1",
     "path": "^0.12.7",
     "react-markdown": "^10.1.0",

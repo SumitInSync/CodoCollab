@@ -6,6 +6,7 @@ import axios from 'axios';
 import cors from 'cors';
 import dotenv from 'dotenv'
 dotenv.config();
+console.log('API Key Loaded:', process.env.GEMINI_API_KEY);
 import { GoogleGenerativeAI } from "@google/generative-ai" ;
 const app = express();
 
@@ -22,13 +23,14 @@ const io = new Server(server, {
     }
 });
 
-const apiKey = "AIzaSyCyEe0nVsBl4g7awZKSKsjCSIwfCfiLbGE";
+const apiKey = process.env.GEMINI_API_KEY; 
+console.log(apiKey);
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const defaultVersions = {
   cpp: "10.2.0",              // alias for "c++"
-  python3: "3.10.0",          // sent as "python" or "python3"
-  javascript: "18.15.0",      // for Node.js 
+  python: "3.10.0",          // sent as "python" or "python3"
+  javascript: "18.15.0",      // for Node.js
   java: "15.0.2"
 };
 
@@ -50,8 +52,10 @@ io.on('connection', (socket) => {
         // Leave previous room if any
         if (currentRoom) {
             socket.leave(currentRoom);
-            rooms.get(currentRoom).delete(currentUser);
-            io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
+            if (rooms.has(currentRoom)) {
+                rooms.get(currentRoom).delete(currentUser);
+                io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
+            }
         }
 
         currentRoom = roomId;
@@ -72,6 +76,11 @@ io.on('connection', (socket) => {
         if (roomInfo?.language) {
             socket.emit("languageUpdate", roomInfo.language);
         }
+        // --- ADDED ---
+        // Send current theme to new user
+        if (roomInfo?.theme) {
+            socket.emit("themeUpdate", roomInfo.theme);
+        }
     });
 
     socket.on("codeChange", ({ roomId, code }) => {
@@ -82,7 +91,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on("leaveRoom", () => {
-         if(currentRoom && currentUser){
+         if(currentRoom && currentUser && rooms.has(currentRoom)){
             rooms.get(currentRoom).delete(currentUser);
             io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
             socket.leave(currentRoom);
@@ -100,12 +109,23 @@ io.on('connection', (socket) => {
         io.to(roomId).emit("languageUpdate", language);
 
         if (!roomData.has(roomId)) roomData.set(roomId, {});
-        roomData.get(roomId).language = language;
+        roomData.get(roomId).language = language;
     });
+
+    // --- NEW EVENT LISTENER FOR THEME ---
+    socket.on("themeChange", ({ roomId, theme }) => {
+        // Broadcast the new theme to everyone in the room
+        io.to(roomId).emit("themeUpdate", theme);
+
+        // Store the theme for the room
+        if (!roomData.has(roomId)) roomData.set(roomId, {});
+        roomData.get(roomId).theme = theme;
+    });
+    // --- END OF NEW CODE ---
+
 
     socket.on("compileCode", async ({ code, roomId, language, version, stdin }) => {
     if (rooms.has(roomId)) {
-        console.log("CHECK2");
         const room = rooms.get(roomId);
 
         // Convert aliases if needed
@@ -136,16 +156,13 @@ io.on('connection', (socket) => {
     socket.on("getAIReview", async ({roomId, code}) => {
         try {
 
-            const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
             const prompt = `
-            You're an expert code reviewer of the language "${detectLang(code)}" and love to give code suggestions. 
+            You're an expert code reviewer of the language "${detectLang(code)}" and love to give code suggestions.
             Generate a brief review of the code "${code}".
-            Format clearly with headings.
-            Give the response in proper format so that it comes in bulets
+            Format clearly with markdown headings and bullet points.
             `;
-            // console.log("STARTING TO FETCH THE RESULT FROM THE AI");
             const result = await model.generateContent(prompt);
-            // console.log("RESULT FETCHED");
             const response = result.response;
             const text = response.text();
 
@@ -157,7 +174,7 @@ io.on('connection', (socket) => {
     })
 
     socket.on("disconnect" , () => {
-        if(currentRoom && currentUser){
+        if(currentRoom && currentUser && rooms.has(currentRoom)){
             rooms.get(currentRoom).delete(currentUser);
             io.to(currentRoom).emit("userJoined", Array.from(rooms.get(currentRoom)));
         }
